@@ -1,0 +1,490 @@
+#include <SFML/Graphics.hpp>
+#include<SFML/Audio.hpp>
+#include<iostream>
+#include<Windows.h>
+#include <thread>
+#include<string>
+sf::RenderWindow app(sf::VideoMode(1000, 800), "CandyCrush", sf::Style::Close);
+sf::Event key;
+bool wanted = true;
+int gmode = 0;
+int nmoves = 0;
+int ts = 90; //tile size
+sf::Vector2i offset(48, 24); //1st cell coordinates
+int seconds = 0; int tlimit = 7*60*1000; //7 mins
+int score = 0;
+int totalScore = 0; //Printed Score
+struct piece
+{
+	int x, y, col, row, valueCarried,alpha=255;
+	int match = 0;
+} board[10][10];
+
+void swap(piece p1, piece p2)
+{
+	std::swap(p1.col, p2.col);
+	std::swap(p1.row, p2.row);
+
+	board[p1.row][p1.col] = p1;
+	board[p2.row][p2.col] = p2;
+}
+void credits() {
+	sf::RectangleShape crd(sf::Vector2f(1000, 800));
+	sf::Texture names;
+	names.loadFromFile("Menus/Credits.png");
+	crd.setTexture(&names);
+	app.clear();
+	app.draw(crd);
+	app.display();
+}
+void cgmode() {
+	sf::RectangleShape choose(sf::Vector2f(1000, 800));
+	sf::Texture mode;
+	mode.loadFromFile("Menus/gmode.png");
+	choose.setTexture(&mode);
+	app.clear();
+	app.draw(choose);
+	app.display();
+}
+void mainMenu() {
+	sf::RectangleShape main(sf::Vector2f(1000, 800));
+	sf::Texture menu;
+	menu.loadFromFile("Menus/mainmenu .png");
+	main.setTexture(&menu);
+	app.clear();
+	app.draw(main);
+	app.display();
+}
+void allmenus() {
+	while (app.pollEvent(key)) {
+		if (key.type == sf::Event::Closed)
+			app.close();
+	lable:
+		mainMenu();
+		if (key.type == sf::Event::MouseButtonPressed)
+		{
+			if (key.mouseButton.button == sf::Mouse::Left)
+			{
+				if (key.mouseButton.x >= 350 && key.mouseButton.x <= 659 && key.mouseButton.y >= 218 && key.mouseButton.y <= 318) {
+					while (wanted) {
+						cgmode();
+						while (app.pollEvent(key)) {
+							if (key.type == sf::Event::Closed)
+								app.close();
+							if (key.type == sf::Event::MouseButtonPressed) {
+								if (key.mouseButton.button == sf::Mouse::Left) {
+									if (key.mouseButton.x >= 376 && key.mouseButton.x <= 626 && key.mouseButton.y >= 207 && key.mouseButton.y <= 283){
+										gmode = 1;
+										return;
+									}
+										
+									if (key.mouseButton.x >= 376 && key.mouseButton.x <= 626 && key.mouseButton.y >= 444 && key.mouseButton.y <= 523) {
+										gmode = 2;
+										return;
+									}
+
+
+								}
+							}
+						}
+					}
+				}
+				if (key.mouseButton.x >= 350 && key.mouseButton.x <= 659 && key.mouseButton.y >= 590 && key.mouseButton.y <= 690) {
+					app.close();
+				}
+				if (key.mouseButton.x >= 350 && key.mouseButton.x <= 659 && key.mouseButton.y >= 400 && key.mouseButton.y <= 500) {
+					while (wanted) {
+						credits();
+						while (app.pollEvent(key)) {
+							if (key.type == sf::Event::Closed)
+								app.close();
+							if (key.type == sf::Event::MouseButtonPressed) {
+								if (key.mouseButton.button == sf::Mouse::Left) {
+									if (key.mouseButton.x >= 26 && key.mouseButton.x <= 281 && key.mouseButton.y >= 693 && key.mouseButton.y <= 769) {
+										goto lable;
+									}
+								}
+							}
+						}
+					}
+				}
+
+			}
+		}
+
+	}
+}
+void gameOver() {
+	sf::RectangleShape over(sf::Vector2f(1000, 800));
+	sf::Texture game;
+	game.loadFromFile("Menus/gameover.png");
+	over.setTexture(&game);
+	sf::Text text;
+	sf::Font font;
+	font.loadFromFile("arial.ttf");
+	text.setFont(font);
+	text.setString(std::to_string(totalScore));
+	text.setPosition(sf::Vector2f(400, 350));
+	text.setCharacterSize(60);
+	text.setFillColor(sf::Color::Yellow);
+	text.setStyle(sf::Text::Bold);
+	app.clear();
+	app.draw(over);
+	app.draw(text);
+	app.display();
+	sf::sleep(sf::milliseconds(3000));
+}
+	
+
+void timeAttack() {
+	while (true) {
+		Sleep(1000);
+		seconds++;
+	}
+}
+void main() {
+	gmode = 0;
+	totalScore = 0;
+	seconds = 0;
+	srand(time(0));
+	sf::Music bg;
+	bg.openFromFile("music.ogg");
+	bg.setVolume(30);
+	bg.play();
+	bg.setLoop(true);
+	app.setFramerateLimit(60);
+	while (app.isOpen()) {
+		allmenus();
+		if (gmode == 1) {
+			while (wanted) {
+				sf::Texture t1, t2;
+				t1.loadFromFile("images/background.png");
+				t2.loadFromFile("images/gems.png");
+
+				sf::Sprite background(t1), candy(t2);
+				if (nmoves > 15) {
+					break;
+				}
+				//Assignment
+				for (int i = 1; i <= 8; i++)
+					for (int j = 1; j <= 8; j++)
+					{
+						board[i][j].valueCarried = 1+rand() % 6;
+						board[i][j].col = j;
+						board[i][j].row = i;
+						board[i][j].x = j * ts;
+						board[i][j].y = i * ts;
+					}
+
+				int xo, yo, x, y; int click = 0; sf::Vector2i pos;
+				bool isSwap = false, isMoving = false;
+
+				while (app.isOpen())
+				{
+					sf::Event action;
+					while (app.pollEvent(action))
+					{
+						if (action.type == sf::Event::Closed)
+							app.close();
+							
+						if (action.type == sf::Event::MouseButtonPressed)
+							if (action.key.code == sf::Mouse::Left)
+							{
+								if (!isSwap && !isMoving) click++;
+								pos = sf::Mouse::getPosition(app) /* -offset*/  ;
+							}
+					}
+
+					// mouse click
+					if (click == 1)
+					{
+						xo = pos.x / ts + 1;
+						yo = pos.y / ts + 1;
+					}
+					if (click == 2)
+					{
+						
+						x = pos.x / ts + 1;
+						y = pos.y / ts + 1;
+						if (abs(x - xo) + abs(y - yo) == 1)
+						{
+							swap(board[yo][xo], board[y][x]); isSwap = 1; click = 0; 
+							nmoves++;
+							if (nmoves > 15) {
+								wanted = false;
+								break;
+							}
+						}
+						else { click = 1;  }
+					}
+
+					//Match finding
+					for (int i = 1; i <= 8; i++)
+						for (int j = 1; j <= 8; j++)
+						{
+							if (board[i][j].valueCarried == board[i + 1][j].valueCarried)
+								if (board[i][j].valueCarried == board[i - 1][j].valueCarried)
+									for (int n = -1; n <= 1; n++) {
+										board[i + n][j].match++;
+										
+									}
+
+							if (board[i][j].valueCarried == board[i][j + 1].valueCarried)
+								if (board[i][j].valueCarried == board[i][j - 1].valueCarried)
+									for (int n = -1; n <= 1; n++) {
+										board[i][j + n].match++; 
+									}
+						}
+
+					//Moving animation
+					isMoving = false;
+					for (int i = 1; i <= 8; i++)
+						for (int j = 1; j <= 8; j++)
+						{
+							piece &p = board[i][j];
+							int dx, dy;
+							for (int n = 0; n < 4; n++)   // 4 - speed
+							{
+								dx = p.x - p.col*ts;
+								dy = p.y - p.row*ts;
+								if (dx) p.x -= dx / abs(dx);
+								if (dy) p.y -= dy / abs(dy);
+							}
+							if (dx || dy) isMoving = 1 ;
+						}
+
+					//Deleting amimation
+					if (!isMoving)
+						for (int i = 1; i <= 8; i++)
+							for (int j = 1; j <= 8; j++)
+								if (board[i][j].match) 
+									if (board[i][j].alpha > 10) {
+										board[i][j].alpha -= 10;
+										isMoving = true;
+										totalScore += 1;
+									}
+
+					
+					//Second swap if no match
+					if (isSwap && !isMoving)
+					{
+						
+						swap(board[yo][xo], board[y][x]);
+						isSwap = 0; 
+						
+						
+					}
+
+					//Update board
+					if (!isMoving)
+					{
+						for (int i = 8; i > 0; i--)
+							for (int j = 1; j <= 8; j++)
+								if (board[i][j].match)
+									for (int n = i; n > 0; n--)
+										if (!board[n][j].match) {
+											swap(board[n][j], board[i][j]); break; 
+										}
+
+						for (int j = 1; j <= 8; j++)
+							for (int i = 8, n = 0; i > 0; i--)
+								if (board[i][j].match)
+								{
+									board[i][j].valueCarried = rand() % 7;
+									board[i][j].y = -ts * n++;
+									board[i][j].match = 0;
+									board[i][j].alpha = 255;
+								}
+					}
+
+
+					//////draw///////
+					app.draw(background);
+
+					for (int i = 1; i <= 8; i++)
+						for (int j = 1; j <= 8; j++)
+						{
+							piece p = board[i][j];
+							candy.setTextureRect(sf::IntRect(p.valueCarried * 49, 0, 49, 49));
+							candy.setColor(sf::Color(255, 255, 255, p.alpha));
+							candy.setPosition(p.x - 2, p.y + 20);
+							candy.move(offset.x - ts, offset.y - ts);
+							app.draw(candy);
+						}
+
+					app.display();
+				}
+			}
+			gameOver();
+			return;
+			
+		}
+		if (gmode == 2) {
+				std::thread working(timeAttack);
+				while (wanted) {
+					
+					sf::Texture t1, t2;
+					t1.loadFromFile("images/background.png");
+					t2.loadFromFile("images/gems.png");
+
+					sf::Sprite background(t1), candy(t2);
+					if (nmoves > 15) {
+						break;
+					}
+					//Assignment
+					for (int i = 1; i <= 8; i++)
+						for (int j = 1; j <= 8; j++)
+						{
+							board[i][j].valueCarried = 1 + rand() % 6;
+							board[i][j].col = j;
+							board[i][j].row = i;
+							board[i][j].x = j * ts;
+							board[i][j].y = i * ts;
+						}
+
+					int xo, yo, x, y; int click = 0; sf::Vector2i pos;
+					bool isSwap = false, isMoving = false;
+
+					while (app.isOpen())
+					{
+						sf::Event action;
+						while (app.pollEvent(action))
+						{
+							if (action.type == sf::Event::Closed)
+								app.close();
+
+							if (action.type == sf::Event::MouseButtonPressed)
+								if (action.key.code == sf::Mouse::Left)
+								{
+									if (!isSwap && !isMoving) click++;
+									pos = sf::Mouse::getPosition(app) /* -offset*/;
+								}
+						}
+
+						// mouse click
+						if (click == 1)
+						{
+							xo = pos.x / ts + 1;
+							yo = pos.y / ts + 1;
+						}
+						if (click == 2)
+						{
+
+							x = pos.x / ts + 1;
+							y = pos.y / ts + 1;
+							if (abs(x - xo) + abs(y - yo) == 1)
+							{
+								swap(board[yo][xo], board[y][x]); isSwap = 1; click = 0;
+								nmoves++;
+								if (nmoves > 15) {
+									wanted = false;
+									break;
+								}
+							}
+							else { click = 1; }
+						}
+
+						//Match finding
+						for (int i = 1; i <= 8; i++)
+							for (int j = 1; j <= 8; j++)
+							{
+								if (board[i][j].valueCarried == board[i + 1][j].valueCarried)
+									if (board[i][j].valueCarried == board[i - 1][j].valueCarried)
+										for (int n = -1; n <= 1; n++) {
+											board[i + n][j].match++;
+
+										}
+
+								if (board[i][j].valueCarried == board[i][j + 1].valueCarried)
+									if (board[i][j].valueCarried == board[i][j - 1].valueCarried)
+										for (int n = -1; n <= 1; n++) {
+											board[i][j + n].match++;
+										}
+							}
+
+						//Moving animation
+						isMoving = false;
+						for (int i = 1; i <= 8; i++)
+							for (int j = 1; j <= 8; j++)
+							{
+								piece &p = board[i][j];
+								int dx, dy;
+								for (int n = 0; n < 4; n++)   // 4 - speed
+								{
+									dx = p.x - p.col*ts;
+									dy = p.y - p.row*ts;
+									if (dx) p.x -= dx / abs(dx);
+									if (dy) p.y -= dy / abs(dy);
+								}
+								if (dx || dy) isMoving = 1;
+							}
+
+						//Deleting amimation
+						if (!isMoving)
+							for (int i = 1; i <= 8; i++)
+								for (int j = 1; j <= 8; j++)
+									if (board[i][j].match)
+										if (board[i][j].alpha > 10) {
+											board[i][j].alpha -= 10;
+											isMoving = true;
+											totalScore += 1;
+										}
+
+
+						//Second swap if no match
+						if (isSwap && !isMoving)
+						{
+
+							swap(board[yo][xo], board[y][x]);
+							isSwap = 0;
+
+
+						}
+
+						//Update board
+						if (!isMoving)
+						{
+							for (int i = 8; i > 0; i--)
+								for (int j = 1; j <= 8; j++)
+									if (board[i][j].match)
+										for (int n = i; n > 0; n--)
+											if (!board[n][j].match) {
+												swap(board[n][j], board[i][j]); break;
+											};
+
+							for (int j = 1; j <= 8; j++)
+								for (int i = 8, n = 0; i > 0; i--)
+									if (board[i][j].match)
+									{
+										board[i][j].valueCarried = rand() % 7;
+										board[i][j].y = -ts * n++;
+										board[i][j].match = 0;
+										board[i][j].alpha = 255;
+									}
+						}
+
+
+						//////draw///////
+						app.draw(background);
+
+						for (int i = 1; i <= 8; i++)
+							for (int j = 1; j <= 8; j++)
+							{
+								piece p = board[i][j];
+								candy.setTextureRect(sf::IntRect(p.valueCarried * 49, 0, 49, 49));
+								candy.setColor(sf::Color(255, 255, 255, p.alpha));
+								candy.setPosition(p.x - 2, p.y + 20);
+								candy.move(offset.x - ts, offset.y - ts);
+								app.draw(candy);
+							}
+
+						app.display();
+						}
+					
+			}
+				working.join();
+				gameOver();
+				return;
+		}
+		}
+	}
